@@ -1,0 +1,19 @@
+apiVersion : apps/v1
+kind: Deployment
+metadata:
+  name: "ravidemoaks-db6a"
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: "ravidemoaks-db6a"
+  template:
+    metadata:
+      labels:
+        app: "ravidemoaks-db6a"
+    spec:
+      containers:
+        - name: "ravidemoaks-db6a"
+          image: "raviaksdemoacr.azurecr.io/ravidemoaks"
+          ports:
+          - containerPort: 8080
