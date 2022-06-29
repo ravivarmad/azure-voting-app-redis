@@ -1,0 +1,51 @@
+on: [push]
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    
+    - uses: azure/docker-login@v1
+      with:
+        login-server: raviaksdemoacr.azurecr.io
+        username: ${{ secrets.acr_raviaksdemoacr_username }}
+        password: ${{ secrets.acr_raviaksdemoacr_password }}
+    
+    - name: Build and push image to ACR
+      id: build-image
+      run: |
+        docker build "$GITHUB_WORKSPACE/" -f  "Dockerfile" -t raviaksdemoacr.azurecr.io/ravidemoaks:${{ github.sha }} --label dockerfile-path=Dockerfile
+        docker push raviaksdemoacr.azurecr.io/ravidemoaks:${{ github.sha }}
+    
+    - uses: azure/k8s-set-context@v1
+      with:
+         kubeconfig: ${{ secrets.aks_ravidemoaks_kubeConfig }}
+      id: login
+    
+    - name: Create namespace
+      run: |
+        namespacePresent=`kubectl get namespace | grep ravidemoaksa293 | wc -l`
+        if [ $namespacePresent -eq 0 ]
+        then
+            echo `kubectl create namespace ravidemoaksa293`
+        fi
+
+    - uses: azure/k8s-create-secret@v1
+      with:
+        namespace: ravidemoaksa293
+        container-registry-url: raviaksdemoacr.azurecr.io
+        container-registry-username: ${{ secrets.acr_raviaksdemoacr_username }}
+        container-registry-password: ${{ secrets.acr_raviaksdemoacr_password }}
+        secret-name: ravidemoaksdockerauth
+       
+    - uses: azure/k8s-deploy@v1.2
+      with:
+        namespace: ravidemoaksa293
+        manifests: |
+          manifests/deployment.yml
+          manifests/service.yml
+          manifests/ingress.yml
+        images: |
+          raviaksdemoacr.azurecr.io/ravidemoaks:${{ github.sha }}
+        imagepullsecrets: |
+          ravidemoaksdockerauth
